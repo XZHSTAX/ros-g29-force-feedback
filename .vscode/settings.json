@@ -19,5 +19,16 @@
         "titleBar.inactiveForeground": "#e7e7e799"
     },
     "ros.distro": "galactic",
-    "peacock.color": "#1a738e"
+    "peacock.color": "#1a738e",
+    "python.autoComplete.extraPaths": [
+        "/home/xzh/ROS2/ros2_g29/install/ros_g29_force_feedback/lib/python3.8/site-packages",
+        "/opt/ros/galactic/lib/python3.8/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/xzh/ROS2/ros2_g29/install/ros_g29_force_feedback/lib/python3.8/site-packages",
+        "/opt/ros/galactic/lib/python3.8/site-packages"
+    ],
+    "files.associations": {
+        "chrono": "cpp"
+    }
 }

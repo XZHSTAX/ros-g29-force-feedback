@@ -124,7 +124,7 @@ G29ForceFeedback::~G29ForceFeedback() {
     if (ioctl(m_device_handle, EVIOCSFF, &m_effect) < 0) {
         std::cout << "failed to upload m_effect" << std::endl;
     }
-    std::ofstream output_file("output.txt"); // 打开文件用于写入
+    std::ofstream output_file("/home/xzh/ROS2/ros2_g29/src/ros-g29-force-feedback/output.txt"); // 打开文件用于写入
     if (output_file.is_open()) {
         // for (double i: positions_record) {
         //     output_file << i << std::endl; // 写入每个m_position的值到文件
