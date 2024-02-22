@@ -6,8 +6,8 @@
 #include <fcntl.h>
 #include <math.h>
 #include <fstream>
-#include <chrono>
 #include "ros_g29_force_feedback/msg/force_feedback.hpp"
+// #include "ros_g29_force_feedback/msg/force_feedback.hpp"
 
 class G29ForceFeedback : public rclcpp::Node {
 
@@ -34,6 +34,7 @@ private:
 
     // variables
     ros_g29_force_feedback::msg::ForceFeedback m_target; // 目标值，由topic的发布者给出，由targetCallback维护
+    // m_target.position = -1.0;
     bool m_is_target_updated = false;
     bool m_is_brake_range = false;
     struct ff_effect m_effect;
@@ -41,15 +42,7 @@ private:
     double m_torque;         // 当前方向盘力矩
     double m_attack_length;  // 当前方向盘攻角长度
     std::vector<double> positions_record; // 用于存储m_position的值
-    std::vector<double> duration_record; // 用于存储m_position的值
-    std::vector<double> ex_torque_record;
-    std::vector<double> m_torque_record;
-    std::chrono::steady_clock::time_point previous_time = std::chrono::steady_clock::now();// 用于计时
-    std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();   // 用于计算总时长
-    const double Moment_inertia = 0.00767;              // 转动惯量
-    const double damping =  Moment_inertia * 24.30; // 阻尼系数
-    const double max_torque_Nm = 2.1;                 // 最大力矩 (N·m)
-    const int record_buff_length = 4;               // 记录n次数据后才能计算角速度和角加速度
+
 public:
     G29ForceFeedback();
     ~G29ForceFeedback();
@@ -62,12 +55,11 @@ private:
     void calcRotateForce(double &torque, double &attack_length, const ros_g29_force_feedback::msg::ForceFeedback &target, const double &current_position);
     void calcCenteringForce(double &torque, const ros_g29_force_feedback::msg::ForceFeedback &target, const double &current_position);
     void uploadForce(const double &position, const double &force, const double &attack_length);
-    double caculate_external_torque(double torque_machine);
 };
 
 
 G29ForceFeedback::G29ForceFeedback() 
-    : Node("g29_force_feedback"){
+    : Node("test_moment_inertia"){
     // 创建一个订阅者，订阅topic /ff_target，消息类型ros_g29_force_feedback::msg::ForceFeedback
     // 当收到来自/ff_target的消息时，函数targetCallback会被调用
     sub_target = this->create_subscription<ros_g29_force_feedback::msg::ForceFeedback>(
@@ -75,9 +67,7 @@ G29ForceFeedback::G29ForceFeedback()
         rclcpp::SystemDefaultsQoS(), 
         std::bind(&G29ForceFeedback::targetCallback, this, std::placeholders::_1));
     positions_record.clear(); // 清空vector
-    duration_record.clear(); // 清空vector
-    ex_torque_record.clear(); // 清空vector
-    m_torque_record.clear(); // 清空vector
+
     declare_parameter("device_name", m_device_name);
     declare_parameter("loop_rate", m_loop_rate);
     declare_parameter("max_torque", m_max_torque);
@@ -104,7 +94,7 @@ G29ForceFeedback::G29ForceFeedback()
 
     rclcpp::sleep_for(std::chrono::seconds(1));
     // 创建一个定时器，每隔m_loop_rate*1s 调用一次函数loop
-    timer = this->create_wall_timer(std::chrono::milliseconds((int)(m_loop_rate*1000)), 
+    timer = this->create_wall_timer(std::chrono::milliseconds((int)m_loop_rate*1000), 
             std::bind(&G29ForceFeedback::loop,this));
 }
 
@@ -114,31 +104,15 @@ G29ForceFeedback::~G29ForceFeedback() {
     m_effect.id = -1;
     m_effect.u.constant.level = 0;
     m_effect.direction = 0;
-
-    std::chrono::steady_clock::time_point current_time = std::chrono::steady_clock::now();
-    std::chrono::duration<double> duration = current_time - start_time;
-    
-    double time_elapsed = duration.count();
-    std::cout << "time elapsed: " << time_elapsed << std::endl;
     // upload m_effect
     if (ioctl(m_device_handle, EVIOCSFF, &m_effect) < 0) {
         std::cout << "failed to upload m_effect" << std::endl;
     }
+    
     std::ofstream output_file("output.txt"); // 打开文件用于写入
     if (output_file.is_open()) {
-        // for (double i: positions_record) {
-        //     output_file << i << std::endl; // 写入每个m_position的值到文件
-        // }
-        std::cout << "length of positions_record: " << positions_record.size() << std::endl;
-        std::cout << "length of duration_record: " << duration_record.size() << std::endl;
-        std::cout << "length of ex_torque_record: " << ex_torque_record.size() << std::endl;
-        if(positions_record.size() > duration_record.size() || positions_record.size() > ex_torque_record.size()){
-            std::cout << "Record size not match!Fail to record!" << std::endl;
-            return;
-        }
-        for(int i =0;i < positions_record.size();++i)
-        {
-            output_file << duration_record[i] << "," <<positions_record[i] << "," <<m_torque_record[i]<< ","<<ex_torque_record[i] << std::endl;
+        for (double i: positions_record) {
+            output_file << i << std::endl; // 写入每个m_position的值到文件
         }
         output_file.close(); // 关闭文件
         std::cout << "finish record!" << std::endl;
@@ -146,7 +120,6 @@ G29ForceFeedback::~G29ForceFeedback() {
     else{
         std::cout << "failed to open file" << std::endl;
     }
-
 }
 
 
@@ -161,22 +134,6 @@ void G29ForceFeedback::loop() {
             // 把转角信息event.value映射到[-1,1]
             m_position = (event.value - (m_axis_max + m_axis_min) * 0.5) * 2 / (m_axis_max - m_axis_min);
             positions_record.push_back(m_position); // 将m_position的值添加到vector中
-            std::chrono::steady_clock::time_point current_time = std::chrono::steady_clock::now();
-            std::chrono::duration<double> duration = current_time - previous_time;
-            
-            double time_elapsed = duration.count();
-            duration_record.push_back(time_elapsed); // 将time_elapsed的值添加到vector中       
-            previous_time = current_time; // 将当前时间点赋值给previous_time
-            
-            if(positions_record.size() <= record_buff_length){
-                std::cout << "num_loop: " << positions_record.size() << std::endl;
-                ex_torque_record.push_back(-1);
-            }
-            else{
-                double external_torque = caculate_external_torque(m_torque);
-                ex_torque_record.push_back(external_torque); // 将external_torque的值添加到vector中  
-            }
-            m_torque_record.push_back(m_torque); // 将m_torque的值添加到vector中
         }
     }
     // 如果在最小制动范围，或使用模式为自动对齐，则使用calcCenteringForce来设置力和位置
@@ -370,26 +327,6 @@ void G29ForceFeedback::initDevice() {
 int G29ForceFeedback::testBit(int bit, unsigned char *array) {
 
     return ((array[bit / (sizeof(unsigned char) * 8)] >> (bit % (sizeof(unsigned char) * 8))) & 1);
-}
-
-double G29ForceFeedback::caculate_external_torque(double torque_machine) {
-    /*
-    此处，torque_machine是带有方向的
-    */
-    double position_k   = positions_record[positions_record.size() - 1]*450*3.1415926/180; // 从[-1,1]映射回弧度
-    double position_k_1 = positions_record[positions_record.size() - 2]*450*3.1415926/180;
-    double position_k_2 = positions_record[positions_record.size() - 3]*450*3.1415926/180;
-
-    double time_elapsed_k   = duration_record[duration_record.size() - 1];
-    double time_elapsed_k_1 = duration_record[duration_record.size() - 2];
-    
-    double omega_k = (position_k - position_k_1) / time_elapsed_k;
-    double omega_k_1 = (position_k_1 - position_k_2) / time_elapsed_k_1;
-
-    double alpha_k = (omega_k - omega_k_1) / time_elapsed_k;
-        
-    double External_Torque = Moment_inertia * alpha_k - torque_machine*max_torque_Nm + damping * omega_k;
-    return External_Torque;
 }
 
 

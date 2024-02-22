@@ -1,6 +1,9 @@
-![GitHub forks](https://img.shields.io/github/forks/kuriatsu/ros-g29-force-feedback?style=flat&color=%#D78695)   ![GitHub Repo stars](https://img.shields.io/github/stars/kuriatsu/ros-g29-force-feedback?style=flat&color=%23FCCC06)  ![GitHub last commit](https://img.shields.io/github/last-commit/kuriatsu/ros-g29-force-feedback)    ![ros](https://img.shields.io/badge/ROS-Humble-blue)    ![ubuntu](https://img.shields.io/badge/Ubuntu-22.04-purple)
-
 # ros-g29-force-feedback
+
+![GitHub forks](https://img.shields.io/github/forks/kuriatsu/ros-g29-force-feedback?style=social)   ![GitHub Repo stars](https://img.shields.io/github/stars/kuriatsu/ros-g29-force-feedback?style=social)  ![GitHub last commit](https://img.shields.io/github/last-commit/kuriatsu/ros-g29-force-feedback)    ![ros](https://img.shields.io/badge/ROS-Galactic-blue)    ![ubuntu](https://img.shields.io/badge/Ubuntu-20.04-purple)
+
+
+# Overview
 ROS2 package to control force feedback of logitech g29 steering wheel with ros message, written in c++, for human beings all over the world.
 This is useful for the user interface of autonomous driving, driving simulator like [CARLA](https://carla.org/), [LGSVL](https://www.lgsvlsimulator.com/) etc.
 
@@ -25,15 +28,13 @@ This is useful for the user interface of autonomous driving, driving simulator l
     |ROS1|--|--|
     |Kinetic|tested|no|
     |Melodic|tested|no|
-    |Noetic|tested|no|
     |ROS2|--|--|
     |Dashing|no|no|
     |Foxy|tested|no|
     |Galactic|tested|no|
-    |Humble|no|no|
 
-# Requirement of `master` branch
-* ubuntu18-22
+# Requirement
+* ubuntu18/20
 * ROS2
 * Logitech G29 Driving Force Racing Wheel (Planning to test with g923)
 
@@ -62,7 +63,7 @@ If you cannot get `CONFIG_LOGIWHEELS_FF=y`, try to find patch or use latest kern
 # Usage
 1. Get device name
     ```bash
-    $ cat /proc/bus/input/devices
+    cat /proc/bus/input/devices
     ```
     find **Logitech G29 Driving Force Racing Wheel** and check Handlers (ex. event19)
 
@@ -70,13 +71,16 @@ If you cannot get `CONFIG_LOGIWHEELS_FF=y`, try to find patch or use latest kern
 
 3. Launch ros node
     ```bash
-    $ source ros2_ws/install/setup.bash
-    $ ros2 run ros_g29_force_feedback g29_force_feedback --ros-args --params-file ros2_ws/src/ros_g29_force_feedback/config/g29.yaml 
+    cd ~/ROS2/ros2_g29
+    . install/setup.sh
+    ros2 run ros_g29_force_feedback g29_force_feedback --ros-args --params-file src/ros-g29-force-feedback/config/g29.yaml
+    
+    ros2 run ros_g29_force_feedback test_moment_inertia --ros-args --params-file src/ros-g29-force-feedback/config/g29.yaml     
     ```
 
 1. Publish message (It's better to use tab completion)  
     ```bash
-    $ ros2 topic pub /ff_target ros_g29_force_feedback/msg/ForceFeedback "{header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''}, position: 0.3, torque: 0.5}"
+    ros2 topic pub /ff_target ros_g29_force_feedback/msg/ForceFeedback "{header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''}, position: 0.3, torque: 0.5}"
     ```
     Once the message is published, the wheel rotates to 0.3*<max_angle> (g29: max_angle=450° clockwise, -450° counterclockwise).
     Publish rate is not restricted.
@@ -87,13 +91,13 @@ If you cannot get `CONFIG_LOGIWHEELS_FF=y`, try to find patch or use latest kern
 |parameter|default|description|
 |:--|:--|:--|
 |device_name|/dev/input/event19|device name, change the number|
-|loop_rate|0.1|Loop of retrieving wheel position and uploading control to the wheel|
+|loop_rate|0.1|Loop of retrieving wheel position and uploading control to the wheel(每隔`loop_rate`调用一次`loop`函数)|
 |max_torque|1.0|As for g29, 1.0 = 2.5Nm (min_torque < max_torque < 1.0)|
-|min_torque|0.2|Less than 0.2 cannot rotate wheel|
-|brake_torque|0.2|Braking torque to stop at the position (descrived below)|
-|brake_position|0.1|Brake angle (`position`-0.1*max_angle)|
+|min_torque|0.2|Less than 0.2 cannot rotate wheel(只在自对准中使用了)|
+|brake_torque|0.2|Braking torque to stop at the position (descrived below)(这个值会直接乘上target.torque，所以这个值越小，截止力矩越大)|
+|brake_position|0.1|Brake angle (`position`-0.1*max_angle)(整个方向盘的转动角度被映射到[-1,1], 在距离目标位置`brake_position`的角度，会触发`brake_position``)|
 |auto_centering_max_torque|0.3|Max torque for auto centering|
-|auto_centering_max_position|0.2|Max torque position while auto centering (`position`±0.2*max_angle)|
+|auto_centering_max_position|0.2|Max torque position while auto centering (`position`±0.2*max_angle)(触发最大力矩的位置)|
 |eps|0.01|Wheel in the range (position-eps to position+eps) is considered as it has reached the `position`|
 |auto_centering|false|Anto centering if true|
 
@@ -142,3 +146,16 @@ Rotation force is ignored when PID mode. (max force can be specified with rospar
 # Reference
 https://www.kernel.org/doc/html/v5.4/input/ff.html  
 https://github.com/flosse/linuxconsole/tree/master
+
+文件说明：
+- output_new2.txt : 从-1全力转向到1，静置一段时间后，在4次反向加力后保持。
+- output_new3.txt : 从-1全力转向到1，静置一段时间后，在3次反向加力后保持。
+- output_new4.txt : 从-1全力转向到1，施加反向阻力，在3次反向加力后，缓慢释放。
+- output_no_ex_force.txt ：从-1全力转向到1，静置，不施加任何力。
+
+# 目前问题
+关于计算外部力矩，对角速度使用了低通滤波器，然后再角加速度，更加平滑和合理。但是角加速度还是有很大的毛刺，不知道这种现象是否合理，计算得到的外部力矩也非常大。
+
+究其根本，是角加速度$\alpha$的值太大。进而导致$J \alpha$过大，外部力矩计算值很大。
+
+下一步是弄清楚$\alpha$的值为什么这么大，是否合理。

@@ -37,8 +37,18 @@ rosidl_target_interfaces(g29_force_feedback ${PROJECT_NAME} "rosidl_typesupport_
 
 ament_export_dependencies(rosidl_default_runtime)
 
+add_executable(test_moment_inertia src/test_moment_inertia.cpp)
+ament_target_dependencies(test_moment_inertia ${dependencies})
+rosidl_target_interfaces(test_moment_inertia ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+
 install(TARGETS
   g29_force_feedback
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+  test_moment_inertia
   DESTINATION lib/${PROJECT_NAME}
 )
 
