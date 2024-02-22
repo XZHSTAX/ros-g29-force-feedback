@@ -50,6 +50,7 @@ private:
     const double damping =  Moment_inertia * 24.30; // 阻尼系数
     const double max_torque_Nm = 2.1;                 // 最大力矩 (N·m)
     const int record_buff_length = 4;               // 记录n次数据后才能计算角速度和角加速度
+    bool flag_position_updata = false;
 public:
     G29ForceFeedback();
     ~G29ForceFeedback();
@@ -136,7 +137,7 @@ G29ForceFeedback::~G29ForceFeedback() {
             std::cout << "Record size not match!Fail to record!" << std::endl;
             return;
         }
-        for(int i =0;i < positions_record.size();++i)
+        for(int i =0;i < duration_record.size();++i)
         {
             output_file << duration_record[i] << "," <<positions_record[i] << "," <<m_torque_record[i]<< ","<<ex_torque_record[i] << std::endl;
         }
@@ -177,7 +178,32 @@ void G29ForceFeedback::loop() {
                 ex_torque_record.push_back(external_torque); // 将external_torque的值添加到vector中  
             }
             m_torque_record.push_back(m_torque); // 将m_torque的值添加到vector中
+            flag_position_updata = true;
+            break;
         }
+        else{
+            flag_position_updata = false;
+            break;
+        }
+    }
+    if(!flag_position_updata && positions_record.size() > record_buff_length){
+        positions_record.push_back(m_position); // 将m_position的值添加到vector中
+        std::chrono::steady_clock::time_point current_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> duration = current_time - previous_time;
+        
+        double time_elapsed = duration.count();
+        duration_record.push_back(time_elapsed); // 将time_elapsed的值添加到vector中       
+        previous_time = current_time; // 将当前时间点赋值给previous_time
+        
+        if(positions_record.size() <= record_buff_length){
+            std::cout << "num_loop: " << positions_record.size() << std::endl;
+            ex_torque_record.push_back(-1);
+        }
+        else{
+            double external_torque = caculate_external_torque(m_torque);
+            ex_torque_record.push_back(external_torque); // 将external_torque的值添加到vector中  
+        }
+        m_torque_record.push_back(m_torque); // 将m_torque的值添加到vector中  
     }
     // 如果在最小制动范围，或使用模式为自动对齐，则使用calcCenteringForce来设置力和位置
     if (m_is_brake_range || m_auto_centering) {
