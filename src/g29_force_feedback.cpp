@@ -183,7 +183,6 @@ void G29ForceFeedback::loop() {
         }
         else{
             flag_position_updata = false;
-            break;
         }
     }
     if(!flag_position_updata && positions_record.size() > record_buff_length){
