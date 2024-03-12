@@ -13,7 +13,10 @@
 
 4. run example code (rospy node, carla_ff_node)
   ```bash
-  python3 carla_control.py
+  conda deactivate
+  cd /ROS2/ros2_g29/
+  . install/setup.sh
+  python3 src/ros-g29-force-feedback/examples/carla_control.py
   ```
   
 5. control ego vehicle

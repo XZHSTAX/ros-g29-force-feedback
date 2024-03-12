@@ -68,7 +68,6 @@ def main(args=None):
     client = carla.Client("127.0.0.1", 2000)
     client.set_timeout(200.0)
     print("running.....")
-
     carla_ff_node = CarlaFFNode(client)
     rclpy.spin(carla_ff_node)
     carla_ff_node.destroy_node()
