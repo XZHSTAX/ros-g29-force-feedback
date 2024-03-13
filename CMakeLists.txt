@@ -59,6 +59,11 @@ install(DIRECTORY config
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
+file(GLOB LAUNCH_FILES "launch/*")
+
+install(FILES ${LAUNCH_FILES}
+  DESTINATION share/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

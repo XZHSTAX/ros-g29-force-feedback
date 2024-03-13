@@ -8,11 +8,12 @@
 #include <fstream>
 #include <chrono>
 #include "ros_g29_force_feedback/msg/force_feedback.hpp"
-
+#include "std_msgs/msg/float64.hpp"
 class G29ForceFeedback : public rclcpp::Node {
 
 private:
     rclcpp::Subscription<ros_g29_force_feedback::msg::ForceFeedback>::SharedPtr sub_target;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr external_torque_publisher_;
     rclcpp::TimerBase::SharedPtr timer;
     // device info
     int m_device_handle;
@@ -75,6 +76,8 @@ G29ForceFeedback::G29ForceFeedback()
         "/ff_target", 
         rclcpp::SystemDefaultsQoS(), 
         std::bind(&G29ForceFeedback::targetCallback, this, std::placeholders::_1));
+    // 用于返回外部力矩
+    external_torque_publisher_ = this->create_publisher<std_msgs::msg::Float64>("external_torque", 10);
     positions_record.clear(); // 清空vector
     duration_record.clear(); // 清空vector
     ex_torque_record.clear(); // 清空vector
@@ -414,6 +417,10 @@ double G29ForceFeedback::caculate_external_torque(double torque_machine) {
     double alpha_k = (omega_k - omega_k_1) / time_elapsed_k;
         
     double External_Torque = Moment_inertia * alpha_k - torque_machine*max_torque_Nm + damping * omega_k;
+    
+    auto message = std_msgs::msg::Float64();
+    message.data = External_Torque;    
+    external_torque_publisher_->publish(message);
     return External_Torque;
 }
 

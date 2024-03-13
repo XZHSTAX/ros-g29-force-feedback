@@ -28,3 +28,5 @@ def generate_launch_description():
             description="Namespace for the node"),
         g29_ff
     ])
+if __name__ == '__main__':
+    generate_launch_description()
